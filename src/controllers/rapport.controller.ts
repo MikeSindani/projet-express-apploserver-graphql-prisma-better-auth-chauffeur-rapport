@@ -1,22 +1,39 @@
 import { prisma } from '@/lib/prisma';
 
 export const RapportController = {
-  count : async () => {   
-    return await prisma.rapport.count();
+  count : async (organizationId?: string) => {  
+    console.log("/controllers/rapport.controller.ts");
+    console.log("🔵 count rapport function");
+    console.log("🔵 Starting to count rapports for organization:", { organizationId }); 
+    if (organizationId) {
+      return await prisma.rapport.count({
+        where: { organizationId }
+      });
+    }
+    console.log("🔵 No organizationId provided, returning 0");
+    return 0
   },
   getAll: async () => {
+    console.log("/controllers/rapport.controller.ts");
+    console.log("🔵 getAll rapport function");
+    console.log("🔵 Starting to get all rapports");
     return await prisma.rapport.findMany({
       include: {
         vehicule: true,
+        user: true,
       },
     });
   },
 
   getOne: async (id: number) => {
+    console.log("/controllers/rapport.controller.ts");
+    console.log("🔵 getOne rapport function");
+    console.log("🔵 Starting to get one rapport:", { id });
     return await prisma.rapport.findUnique({
       where: { id },
       include: {
         vehicule: true,
+        user: true,
       },
     });
   },
@@ -36,6 +53,9 @@ export const RapportController = {
     chauffeurId: string;
     vehiculeId: number;
   }) => {
+    console.log("/controllers/rapport.controller.ts");
+    console.log("🔵 create rapport  function");
+    console.log("🔵 Starting to create rapport:", { date, kilometrage, incidents, commentaires, chauffeurId, vehiculeId });
     // Vérifier si le chauffeur et le véhicule existent
     const chauffeur = await prisma.user.findUnique({ where: { id: chauffeurId } });
     const vehicule = await prisma.vehicule.findUnique({ where: { id: vehiculeId } });
@@ -51,6 +71,8 @@ export const RapportController = {
     const organizationId = (chauffeur as any).organizationId ?? (vehicule as any).organizationId;
     if (!organizationId) throw new Error('Unable to determine organizationId for rapport creation');
 
+
+    console.log("🔵 OrganizationId for rapport creation:", { organizationId });
     return await prisma.rapport.create({
       data: {
         date: date || new Date(),
@@ -58,12 +80,12 @@ export const RapportController = {
         incidents: incidents ?? null,
         commentaires: commentaires ?? null,
         userId: chauffeurId,
-        chauffeurId,
         organizationId,
         vehiculeId,
       },
       include: {
         vehicule: true,
+        user: true,
       },
     });
   },
@@ -86,20 +108,25 @@ export const RapportController = {
     },
     id: number
   ) => {
+    console.log("/controllers/rapport.controller.ts");
+    console.log("🔵 update rapport function");
+    console.log("🔵 Starting to update rapport:", { date, kilometrage, incidents, commentaires, chauffeurId, vehiculeId, id });
     // Vérifier si le rapport existe
     const existingRapport = await prisma.rapport.findUnique({ where: { id } });
     if (!existingRapport) {
       throw new Error(`Rapport avec l'ID ${id} n'existe pas`);
     }
-
+    let chauffeur : any;
     // Vérifier les relations si elles sont mises à jour
     if (chauffeurId) {
-      const chauffeur = await prisma.user.findUnique({ where: { id: chauffeurId } });
+      chauffeur = await prisma.user.findUnique({ where: { id: chauffeurId } });
       if (!chauffeur) {
         throw new Error(`Chauffeur avec l'ID ${chauffeurId} n'existe pas`);
       }
     }
-
+    // Determine organizationId for the rapport (prefer chauffeur's organization if available)
+    const organizationId = (chauffeur as any).organizationId ?? (existingRapport as any).organizationId;
+    if (!organizationId) throw new Error('Unable to determine organizationId for rapport update');
     if (vehiculeId) {
       const vehicule = await prisma.vehicule.findUnique({ where: { id: vehiculeId } });
       if (!vehicule) {
@@ -118,11 +145,15 @@ export const RapportController = {
       data: updateData,
       include: {
         vehicule: true,
+        user: true,
       },
     });
   },
 
   delete: async (id: number) => {
+    console.log("/controllers/rapport.controller.ts");
+    console.log("🔵 delete rapport function");
+    console.log("🔵 Starting to delete rapport:", { id });
     // Vérifier si le rapport existe avant de le supprimer
     const rapport = await prisma.rapport.findUnique({ where: { id } });
     if (!rapport) {

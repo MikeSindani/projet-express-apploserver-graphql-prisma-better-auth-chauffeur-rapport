@@ -15,7 +15,7 @@ datasource db {
 }
 
 model Organization {
-  id        Int       @id @default(autoincrement())
+  id        String      @id @default(cuid())
   name      String
   users     User[]
   vehicules Vehicule[]
@@ -31,14 +31,18 @@ model User {
   image         String?
   password      String?
   role          Role      @default(GESTIONNAIRE)
+  telephone     String?   @unique
+  licenseNumber String?
   vehicules     Vehicule[]
   rapports      Rapport[]
-  organizationId Int?
+  organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id])
   sessions      Session[]
   accounts      Account[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+  notifications Notification[]
+  organizationAccess Boolean @default(false)
 }
 
 model Session {
@@ -95,7 +99,7 @@ model Vehicule {
   statut           String
   userId           String
   user             User      @relation(fields: [userId], references: [id])
-  organizationId   Int
+  organizationId   String
   organization     Organization @relation(fields: [organizationId], references: [id])
   rapports         Rapport[]
   createdAt        DateTime  @default(now())
@@ -107,17 +111,26 @@ model Rapport {
   kilometrage  Int
   incidents    String?
   commentaires String?
-  chauffeurId  String
   vehiculeId   Int
   userId       String
   user         User      @relation(fields: [userId], references: [id])
   vehicule     Vehicule  @relation(fields: [vehiculeId], references: [id])
-  organizationId Int
+  organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
 }
 
 enum Role {
+  ADMIN
   GESTIONNAIRE
   CHAUFFEUR
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  message   String
+  read      Boolean  @default(false)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
 }
 

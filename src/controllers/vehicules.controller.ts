@@ -1,8 +1,12 @@
 import { prisma } from '@/lib/prisma'; // adapte ce chemin à ton projet
 
 export const VehiculeController = {
-  count : async () => {   
-    return await prisma.vehicule.count();
+  count : async (organizationId?: number, statut?: string) => {   
+    const where: any = {};
+    if (organizationId) where.organizationId = organizationId;
+    if (statut) where.statut = statut;
+    
+    return await prisma.vehicule.count({ where });
   },
   getAll: async () => {
     return await prisma.vehicule.findMany({

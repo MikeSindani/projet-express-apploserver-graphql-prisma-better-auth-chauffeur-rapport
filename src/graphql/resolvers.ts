@@ -1,6 +1,9 @@
 import { AuthController } from '@/controllers/auth.controller';
 import { ChauffeurController } from '@/controllers/chauffeur.controller';
+import { NotificationController } from '@/controllers/notification.controller';
+import { OrganizationController } from '@/controllers/organisation.controller';
 import { RapportController } from '@/controllers/rapport.controller';
+import { SearchController } from '@/controllers/search.controller';
 import { UserController } from '@/controllers/users.controller';
 import { VehiculeController } from '@/controllers/vehicules.controller';
 import { PubSub } from 'graphql-subscriptions';
@@ -12,11 +15,15 @@ const pubsub = new PubSub<Record<string, any>>();
 const NOTIF_EVENT = 'NOTIFICATION_RECEIVED';
 
 
-function sendNotification(message : string) {
+async function sendNotification(message : string, organizationId: string) {
+      // Persist for all managers in the organization
+      await NotificationController.createForOrganization(organizationId, message);
+
       const notif = {
         id: Date.now().toString(),
         message,
         timestamp: new Date().toISOString(),
+        read: false
       };
       pubsub.publish(NOTIF_EVENT, { notificationReceived: notif });
       return notif;
@@ -41,7 +48,7 @@ export const resolvers = {
       return UserController.users();
     },
     user: (_: any, args: any, context: any) => {
-      checkGestionnaire(context);
+      checkAuth(context);
       return UserController.user(args.id);
     },
 
@@ -72,27 +79,59 @@ export const resolvers = {
       return VehiculeController.getOne(args.id);
     },
 
-    countChauffeur: (_: any, __: any, context: any) => {
+    countChauffeur: (_: any, args: any, context: any) => {
       checkAuth(context);
-      return ChauffeurController.count();
+      const organizationId = args.organizationId || context.user?.organizationId;
+      return ChauffeurController.count(organizationId);
     },
-    countVehicule: (_: any, __: any, context: any) => {
+    countVehicule: (_: any, args: any, context: any) => {
       checkAuth(context);
-      return VehiculeController.count();
+      const organizationId = args.organizationId || context.user?.organizationId;
+      return VehiculeController.count(organizationId);
     },
-    countRapport: (_: any, __: any, context: any) => {
+    countActiveVehicule: (_: any, args: any, context: any) => {
       checkAuth(context);
-      return RapportController.count();
+      const organizationId = args.organizationId || context.user?.organizationId;
+      return VehiculeController.count(organizationId, 'Disponible');
+    },
+    countRapport: (_: any, args: any, context: any) => {
+      checkAuth(context);
+      const organizationId = args.organizationId || context.user?.organizationId;
+      return RapportController.count(organizationId);
+    },
+    getOrganizationUser: (_: any, args: any, context: any) => {
+      checkAuth(context);
+      return  OrganizationController.getOrganizationUser(args.userId);
+    },
+    organizationMembers: (_: any, args: any, context: any) => {
+      checkAuth(context);
+      return OrganizationController.getOrganizationMembers(args.organizationId);
+    },
+    search: (_: any, args: any, context: any) => {
+      checkAuth(context);
+      const organizationId = args.organizationId || context.user?.organizationId;
+      return SearchController.searchAll(args.query, organizationId);
+    },
+    notifications: (_: any, __: any, context: any) => {
+      checkAuth(context);
+      return NotificationController.getUserNotifications(context.user.id);
     },
   },
   Mutation: {
     login: (_: any, args: any) => AuthController.login(_, args),
+    loginWithPhone: (_: any, args: any) => AuthController.loginWithPhone(_, args),
     register: (_: any, args: any) => AuthController.register(_, args),
+    registerWithPhone: (_: any, args: any) => AuthController.registerWithPhone(_, args),
     forgotPassword: (_: any, args: any) => AuthController.forgotPassword(args.email),
-    logout: (_: any, args: any) => AuthController.logout(args.token),
+    forgotPasswordWithPhone: (_: any, args: any) => AuthController.forgotPasswordWithPhone(args.telephone),
+    logout: (_: any, args: any, context: any) => AuthController.logout(args.token),
     generateToken : (_: any, args: any, context: any) => {
       checkAuth(context);
       return AuthController.generateToken(args.userId);
+    },
+    updateProfile: (_: any, args: any, context: any) => {
+      checkAuth(context);
+      return AuthController.updateProfile({ userId: args.id, data: args });
     },
     
 
@@ -104,29 +143,35 @@ export const resolvers = {
       checkGestionnaire(context);
       return VehiculeController.update(args, args.id);
     },
-    deleteVehicule: (_: any, args: any, context: any) => {
-      checkGestionnaire(context);
-      return VehiculeController.delete(args.id);
-    },
 
-    
-    updateUser: (_: any, args: any, context: any) => {
-      checkGestionnaire(context);
-      return UserController.update(args, args.id);
-    },
-    deleteUser: (_: any, args: any, context: any) => {
-      checkGestionnaire(context);
-      return UserController.delete(args.id);
-    },
 
     createOrganization: (_: any, args: any, context: any) => {
       checkAuth(context);
-      return UserController.createOrganization(args.name, args.userId);
+      return  OrganizationController.createOrganization(args.name, args.userId);
     },
 
-    createRapport: (_: any, args: any, context: any) => {
+    addUserToOrganization: (_: any, args: any, context: any) => {
       checkAuth(context);
-      return RapportController.create(args);
+      return  OrganizationController.addUserToOrganization(args.email, args.organizationId, args.telephone);
+    },
+
+    manageOrganizationAccess: (_: any, args: any, context: any) => {
+      checkGestionnaire(context);
+      return OrganizationController.manageOrganizationAccess(args.userId, args.access);
+    },
+
+
+
+    createRapport: async (_: any, args: any, context: any) => {
+      checkAuth(context);
+      const rapport = await RapportController.create(args);
+      
+      // Trigger notification for new report
+      if (rapport.organizationId) {
+          await sendNotification(`Nouveau rapport créé - ${rapport.id}`, rapport.organizationId);
+      }
+      
+      return rapport;
     },
     updateRapport: (_: any, args: any, context: any) => {
       checkAuth(context);
@@ -136,25 +181,44 @@ export const resolvers = {
       checkAuth(context);
       return RapportController.delete(args.id);
     },
-
     
-    updateChauffeur: (_: any, args: any, context: any) => {
+    
+    createChauffeur: async (_: any, args: any, context: any) => {
+      console.log("🔵 createChauffeur resolver called");
+      console.log("🔵 Args:", JSON.stringify(args, null, 2));
       checkGestionnaire(context);
-      return ChauffeurController.update(args.id, args);
+      
+      // Get the organization ID from the authenticated user
+      const organizationId = context.user?.organizationId;
+      if (!organizationId) {
+        throw new Error('Vous devez appartenir à une organisation pour ajouter un chauffeur');
+      }
+      
+      // Create the chauffeur
+      const chauffeur = await ChauffeurController.create(args);
+      
+      // Assign to the manager's organization with pending access
+      const updatedChauffeur = await UserController.updateUser(chauffeur.id, {
+        organizationId,
+        organizationAccess: true, // Auto-approve since manager is creating
+      });
+      
+      return updatedChauffeur;
     },
-    deleteChauffeur: (_: any, args: any, context: any) => {
-      checkGestionnaire(context);
-      return ChauffeurController.delete(args.id);
+    markAllNotificationsAsRead: async (_: any, args: any, context: any) => {
+        checkAuth(context);
+        await NotificationController.markAllAsRead(context.user.id);
+        return true;
     },
-
-    sendNotification: (_ : any, { message }: { message: string }, context: any) => {
-      checkAuth(context);
-      return sendNotification(message);
+    
+    markNotificationAsRead: async (_: any, args: any, context: any) => {
+        checkAuth(context);
+        return await NotificationController.markAsRead(args.id, context.user.id);
     },
   },
   Subscription: {
     notificationReceived: {
-      subscribe: () => (pubsub as any).asyncIterator([NOTIF_EVENT]),
+      subscribe: () => pubsub.asyncIterableIterator([NOTIF_EVENT]),
     },
   },
   Upload: GraphQLUpload,
