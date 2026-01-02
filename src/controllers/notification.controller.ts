@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 
+
 export const NotificationController = {
   create: async (userId: string, message: string) => {
     return await prisma.notification.create({

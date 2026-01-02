@@ -1,3 +1,4 @@
+import log from '@/lib/log';
 import { prisma } from "@/lib/prisma";
 
 type AuthArgs = {
@@ -12,14 +13,14 @@ const JWT_SECRET = process.env.JWT_SECRET || "TON_SECRET_JWT";
 export const OrganizationController = {
 
     getOrganizationUser: async (userId: string) => {
-      console.log("/controllers/organisation.controller.ts");
-      console.log("🔵 getOrganizationUser function");
-      console.log(" 🔵 Started to get organization user",{userId})
+      log("/controllers/organisation.controller.ts");
+      log("🔵 getOrganizationUser function");
+      log(" 🔵 Started to get organization user",{userId})
      const user = await prisma.user.findUnique({ where: { id: userId } });
      if (!user) {
        throw new Error(`User with id ${userId} not found`);
      }
-     console.log(" 🔵 User found",{user})
+     log(" 🔵 User found",{user})
      if (!user?.organizationId) {
        throw new Error(`User with id ${userId} is not associated with an organization`);
      }
@@ -28,13 +29,13 @@ export const OrganizationController = {
      });
   },
   createOrganization: async (name: string, userId?: string) => {
-    console.log("/controllers/organisation.controller.ts");
-    console.log("🔵 createOrganization function");
-    console.log(" 🔵 Started to create organization",{name,userId})
+    log("/controllers/organisation.controller.ts");
+    log("🔵 createOrganization function");
+    log(" 🔵 Started to create organization",{name,userId})
     const org = await prisma.organization.create({
       data: { name },
     });
-    console.log(" 🔵 Organization created",{org})
+    log(" 🔵 Organization created",{org})
     if (userId) {
       await prisma.user.update({
         where: { id: userId },
@@ -47,10 +48,10 @@ export const OrganizationController = {
     }
     return org;
   },
-  addUserToOrganization: async (email?: string, organizationId: string, telephone?: string) => {
-    console.log("/controllers/organisation.controller.ts");
-    console.log("🔵 addUserToOrganization function");
-    console.log(" 🔵 Started to add user to organization",{email,organizationId})
+  addUserToOrganization: async (organizationId: string, email?: string, telephone?: string) => {
+    log("/controllers/organisation.controller.ts");
+    log("🔵 addUserToOrganization function");
+    log(" 🔵 Started to add user to organization",{email,organizationId})
 
     // Find the user first
     let user;
@@ -64,7 +65,7 @@ export const OrganizationController = {
       throw new Error(`User not found`);
     }
 
-    console.log(" 🔵 User found",{user})
+    log(" 🔵 User found",{user})
 
     // Update user with organizationId but access false (Pending)
     const updatedUser = await prisma.user.update({
@@ -85,19 +86,37 @@ export const OrganizationController = {
     return updatedUser;
   },
 
-  manageOrganizationAccess: async (userId: string, access: boolean) => {
-    console.log("/controllers/organisation.controller.ts");
-    console.log("🔵 manageOrganizationAccess function");
-      console.log(" 🔵 Managing access", { userId, access });
-      return await prisma.user.update({
-          where: { id: userId },
-          data: { organizationAccess: access }
-      });
+  manageOrganizationAccess: async (userId: string, access: boolean, managerOrgId?: string) => {
+    log("/controllers/organisation.controller.ts");
+    log("🔵 manageOrganizationAccess function", { userId, access, managerOrgId });
+
+    // 1. Check if user exists
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, organizationId: true }
+    });
+
+    if (!user) {
+      throw new Error(`Utilisateur avec l'ID ${userId} non trouvé.`);
+    }
+
+    // 2. Security Check: If managerOrgId is provided, verify it matches user's organization
+    // Managers should only be able to manage access for users in their own organization
+    if (managerOrgId && user.organizationId !== managerOrgId) {
+      log("❌ Security Violation: Manager tried to access user outside their organization", { managerOrgId, userOrgId: user.organizationId });
+      throw new Error("Vous n'avez pas l'autorisation de gérer l'accès de cet utilisateur.");
+    }
+
+    log("🔵 Managing access", { userId, access });
+    return await prisma.user.update({
+      where: { id: userId },
+      data: { organizationAccess: access }
+    });
   },
 
   getOrganizationMembers: async (organizationId: string) => {
-    console.log("/controllers/organisation.controller.ts");
-    console.log("🔵 getOrganizationMembers function");
+    log("/controllers/organisation.controller.ts");
+    log("🔵 getOrganizationMembers function",{organizationId});
       return await prisma.user.findMany({
           where: { organizationId }
       });

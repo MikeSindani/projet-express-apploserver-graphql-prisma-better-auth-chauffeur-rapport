@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import log from '@/lib/log'; // Added import for log
 import { prisma } from "@/lib/prisma";
 import { saveImage } from "@/lib/saveImage";
 
@@ -6,11 +7,29 @@ import { saveImage } from "@/lib/saveImage";
 
 
 export const ChauffeurController = {
+  // Suppose l'existence d'un modèle "trajet" avec champs { chauffeurId, cout, date }.
+  count: async (organizationId?: string) => {
+    log("/controllers/chauffeur.controller.ts"); 
+    log("🔵 COUNT CHAUFFEUR FUNCTION");
+    log("🔵 Starting to count chauffeurs", { organizationId });
+    if (organizationId) {
+      const count = await prisma.user.count({ 
+        where: { 
+          role: "CHAUFFEUR",
+          organizationId 
+        } 
+      });
+      log("🔵 Count chauffeurs successfully:", { count });
+      return count;
+    }
+    log("🔵 Count chauffeurs successfully : 0 ");
+    return 0
+  },
   // Liste de tous les users de rôle CHAUFFEUR
   getAll: async () => {
-    console.log("/controllers/chauffeur.controller.ts");
-    console.log("🔵 GET ALL CHAUFFEUR FUNCTION");
-    console.log("🔵 Starting to get all chauffeurs");
+    log("/controllers/chauffeur.controller.ts");
+    log("🔵 GET ALL CHAUFFEUR FUNCTION");
+    log("🔵 Starting to get all chauffeurs");
     return await prisma.user.findMany({
       where: { role: "CHAUFFEUR" },
       include: {
@@ -22,9 +41,9 @@ export const ChauffeurController = {
 
   // Un seul chauffeur (user) par id — garantit role = CHAUFFEUR
   getOne: async (id: string) => {
-    console.log("/controllers/chauffeur.controller.ts");
-    console.log("🔵 GET ONE CHAUFFEUR FUNCTION");
-    console.log("🔵 Starting to get one chauffeur", { id });
+    log("/controllers/chauffeur.controller.ts");
+    log("🔵 GET ONE CHAUFFEUR FUNCTION");
+    log("🔵 Starting to get one chauffeur", { id });
     return await prisma.user.findFirst({
       where: { id, role: "CHAUFFEUR" },
       include: {
@@ -34,11 +53,11 @@ export const ChauffeurController = {
   },
 
   create: async (data: any) => {
-    console.log("/controllers/chauffeur.controller.ts");
-    console.log("🔵 CREATE CHAUFFEUR FUNCTION");
+    log("/controllers/chauffeur.controller.ts");
+    log("🔵 CREATE CHAUFFEUR FUNCTION");
     
-    const { name, email, password, role, telephone, licenseNumber, organizationId, image } = data;
-    console.log("🔵 Starting to create user:", { name, email, password, role, telephone, licenseNumber, organizationId, imageLen: image?.length });
+    const { name, email, password, role, telephone, licenseNumber, licenseExpiryDate, licenseImage, organizationId, image } = data;
+    log("🔵 Starting to create user:", { name, email, password, role, telephone, licenseNumber, licenseExpiryDate, organizationId, imageLen: image?.length, licenseImageLen: licenseImage?.length });
     
     // Validate that at least email or telephone is provided
     if (!email && !telephone) {
@@ -60,7 +79,7 @@ export const ChauffeurController = {
       }
     }
     
-    console.log("🔵 User does not exist, creating...");
+    log("🔵 User does not exist, creating...");
     
     // Create user with basic auth data
     if (email) {
@@ -72,7 +91,7 @@ export const ChauffeurController = {
           password,
         }
       });
-      console.log("🔵 User created successfully with email, updating...");
+      log("🔵 User created successfully with email, updating...");
       
       // Update user with Chauffeur specific data
       const user = await prisma.user.update({
@@ -81,18 +100,20 @@ export const ChauffeurController = {
           role: "CHAUFFEUR",
           telephone,
           licenseNumber,
-          organizationId,
+          licenseExpiryDate,
+          licenseImage: licenseImage ? saveImage(licenseImage) : undefined,
+          organizationId: organizationId as any,
           organizationAccess: true,
           image: image ? saveImage(image) : undefined,
         },
       });
-      console.log("🔵 User updated successfully:", user);
+      log("🔵 User updated successfully:", user);
       return user;
     } else {
       // We'll use a generated email format: phone@phone.local
       const generatedEmail = `${telephone.replace(/[^0-9]/g, '')}@phone.local`;
       
-      console.log("🔵 Creating user with better-auth...");
+      log("🔵 Creating user with better-auth...");
       try {
         await auth.api.signUpEmail({ 
           body: { 
@@ -101,12 +122,12 @@ export const ChauffeurController = {
             password 
           } 
         });
-        console.log("✅ Better-auth signup successful");
+        log("✅ Better-auth signup successful");
       } catch (error) {
-        console.error("❌ Better-auth signup failed:", error);
+        log("❌ Better-auth signup failed:", error);
         throw error;
       }
-      console.log("🔵 User created successfully with phone, updating...");
+      log("🔵 User created successfully with phone, updating...");
        // Update user with Chauffeur specific data
       // We use generatedEmail to find the user we just created
       const user = await prisma.user.update({
@@ -115,12 +136,14 @@ export const ChauffeurController = {
           role: "CHAUFFEUR",
           telephone,
           licenseNumber,
+          licenseExpiryDate,
+          licenseImage: licenseImage ? saveImage(licenseImage) : undefined,
           organizationId,
           organizationAccess: true,
           image: image ? saveImage(image) : undefined,
         },
       });
-      console.log("🔵 User created successfully with phone:", user);
+      log("🔵 User created successfully with phone:", user);
       return user;
     }
   },
@@ -129,32 +152,48 @@ export const ChauffeurController = {
   update: async (
     id: string,
     data: {
+      id?: string;
       name?: string;
       email?: string;
       password?: string;
       telephone?: string;
       licenseNumber?: string;
+      licenseExpiryDate?: string;
+      licenseImage?: string;
       organizationId?: string;
       organizationAccess?: boolean;
       image?: string;
       // ne pas autoriser le changement de rôle ici sinon expliciter
     }
   ) => {
-    console.log("/controllers/chauffeur.controller.ts");
-    console.log("🔵 UPDATE CHAUFFEUR FUNCTION");
+    log("/controllers/chauffeur.controller.ts");
+    log("🔵 UPDATE CHAUFFEUR FUNCTION");
     // s'assure que la cible est bien un CHAUFFEUR
     const existing = await prisma.user.findUnique({ where: { id } });
     if (!existing || existing.role !== "CHAUFFEUR") {
       throw new Error("Utilisateur non trouvé ou n'est pas un chauffeur");
     }
     
-    // Process image if present
-    const dataToUpdate: any = { ...data };
+    // Strip id from data to avoid Prisma error
+    const { id: _, ...updateData } = data;
+    
+    // Process images
+    const dataToUpdate: any = { ...updateData };
     if (data.image) {
        dataToUpdate.image = saveImage(data.image);
     }
+    if (data.licenseImage) {
+       dataToUpdate.licenseImage = saveImage(data.licenseImage);
+    }
+    
+    // Hash password if present
+    if (data.password) {
+      log("🔵 Hashing new password for chauffeur update");
+      const bcrypt = await import('bcryptjs');
+      dataToUpdate.password = await bcrypt.hash(data.password, 10);
+    }
 
-    console.log("🔵 Starting to update user:", { id, data: dataToUpdate });
+    log("🔵 Starting to update user:", { id, data: dataToUpdate });
     return await prisma.user.update({
       where: { id },
       data: dataToUpdate,
@@ -163,9 +202,9 @@ export const ChauffeurController = {
 
   // Suppression d'un chauffeur (user)
   delete: async (id: string) => {
-    console.log("/controllers/chauffeur.controller.ts");
-    console.log("🔵 DELETE CHAUFFEUR FUNCTION");
-    console.log("🔵 Starting to delete user:", { id });
+    log("/controllers/chauffeur.controller.ts");
+    log("🔵 DELETE CHAUFFEUR FUNCTION");
+    log("🔵 Starting to delete user:", { id });
     // s'assure que la cible est bien un CHAUFFEUR
     const existing = await prisma.user.findUnique({ where: { id } });
     if (!existing || existing.role !== "CHAUFFEUR") {
@@ -177,28 +216,11 @@ export const ChauffeurController = {
   },
 
   // Calcul du coût total pour un chauffeur (user) sur une période.
-  // Suppose l'existence d'un modèle "trajet" avec champs { chauffeurId, cout, date }.
-  count: async (organizationId?: string) => {
-    console.log("/controllers/chauffeur.controller.ts"); 
-    console.log("🔵 COUNT CHAUFFEUR FUNCTION");
-    console.log("🔵 Starting to count chauffeurs", { organizationId });
-    if (organizationId) {
-      const count = await prisma.user.count({ 
-        where: { 
-          role: "CHAUFFEUR",
-          organizationId 
-        } 
-      });
-      console.log("🔵 Count chauffeurs successfully:", { count });
-      return count;
-    }
-    console.log("🔵 Count chauffeurs successfully : 0 ");
-    return 0
-  },
+  
   bloqueAccess: async (id: string) => {
-    console.log("/controllers/chauffeur.controller.ts");
-    console.log("🔵 BLOCK ACCESS CHAUFFEUR FUNCTION");
-    console.log("🔵 Starting to block access for user:", { id });
+    log("/controllers/chauffeur.controller.ts");
+    log("🔵 BLOCK ACCESS CHAUFFEUR FUNCTION");
+    log("🔵 Starting to block access for user:", { id });
     // s'assure que la cible est bien un CHAUFFEUR
     const existing = await prisma.user.findUnique({ where: { id } });
     if (!existing || existing.role !== "CHAUFFEUR") {

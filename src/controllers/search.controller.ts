@@ -1,4 +1,6 @@
+import log from '@/lib/log';
 import { prisma } from "@/lib/prisma";
+
 
 export const SearchController = {
   /**
@@ -20,6 +22,7 @@ export const SearchController = {
 
     // Build organization filter
     const orgFilter = organizationId ? { organizationId } : {};
+    log(orgFilter); // Added log statement for orgFilter
 
     // Search Chauffeurs (Users with role CHAUFFEUR)
     const chauffeurs = await prisma.user.findMany({

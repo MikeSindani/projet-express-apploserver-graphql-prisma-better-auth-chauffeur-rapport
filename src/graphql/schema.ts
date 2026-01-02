@@ -11,6 +11,10 @@ export const typeDefs = `#graphql
     annee: Int
     statut: String
     user: User
+    driverId: String
+    driver: User
+    image: String
+    registrationCardImage: String
     rapports: [Rapport]
   }
 
@@ -34,6 +38,8 @@ export const typeDefs = `#graphql
     organization: Organization
     vehicules: [Vehicule]
     image: String
+    licenseExpiryDate: String
+    licenseImage: String
     createdAt: String
   }
 
@@ -49,6 +55,8 @@ export const typeDefs = `#graphql
     statut: Boolean
     createdAt: String
     image: String
+    licenseExpiryDate: String
+    licenseImage: String
     vehicules: [Vehicule]
     rapports: [Rapport]
   }
@@ -62,6 +70,12 @@ export const typeDefs = `#graphql
   type AuthPayload {
     token: String
     user: User
+  }
+
+  enum Folder {
+    profil
+    vehicule
+    permis
   }
 
   type Rapport {
@@ -95,6 +109,7 @@ export const typeDefs = `#graphql
     vehicule(id: Int!): Vehicule!
     countVehicule(organizationId: String): Int!
     countActiveVehicule(organizationId: String): Int!
+    countIndisponibleVehicule(organizationId: String): Int!
 
     rapports: [Rapport!]!
     rapport(id: Int!): Rapport!
@@ -118,6 +133,7 @@ export const typeDefs = `#graphql
     generateToken(userId: String!): AuthPayload!
     register(name: String!, email: String!, password: String!,role: String!): AuthPayload!  
     registerWithPhone(name: String!, telephone: String!, password: String!, role: String!): AuthPayload!
+    changePassword(id: String!, password: String!): User!
     forgotPassword(email: String!): Boolean!
     forgotPasswordWithPhone(telephone: String!): Boolean!
     logout(token: String!): Boolean!
@@ -127,9 +143,10 @@ export const typeDefs = `#graphql
     markAllNotificationsAsRead: Boolean!
     
 
-    createVehicule(immatriculation: String!, marque: String!, modele: String!, annee: Int!, userId: String!): Vehicule!
+    createVehicule(immatriculation: String!, marque: String!, modele: String!, annee: Int!, userId: String!, driverId: String, image: String, registrationCardImage: String): Vehicule!
     updateVehicule(id: Int!, immatriculation: String!, marque: String!, modele: String!, annee: Int!, statut: String!): Vehicule!
     deleteVehicule(id: Int!): Boolean!
+    changeStatut(id: Int!, statut: String!): Vehicule!
     
 
     createUser(name: String!, email: String!, password: String!, role: Role!, telephone: String, licenseNumber: String): User!
@@ -140,16 +157,18 @@ export const typeDefs = `#graphql
     addUserToOrganization(email: String!, organizationId: String!, telephone: String!): User!
     manageOrganizationAccess(userId: String!, access: Boolean!): User!
     
-    createChauffeur(name: String!, email: String, password: String!, role: Role!, telephone: String, licenseNumber: String, organizationId: String, image: String): User!
-    updateChauffeur(id: String!, name: String, email: String, password: String, telephone: String, tarifKm: Int, tarifHeure: Int, image: String): User!
+    createChauffeur(name: String!, email: String, password: String!, role: Role!, telephone: String, licenseNumber: String, licenseExpiryDate: String, licenseImage: String, organizationId: String, image: String): User!
+    updateChauffeur(id: ID!, name: String, email: String, password: String, role: Role, telephone: String, licenseNumber: String, licenseExpiryDate: String, licenseImage: String, organizationId: String, image: String): User!
     deleteChauffeur(id: String!): Boolean!
+    bloqueAccess(id: String!): Boolean!
 
     createRapport(date: String, kilometrage: Int!, incidents: String, commentaires: String, chauffeurId: String!, vehiculeId: Int!): Rapport!
     updateRapport(id: Int!, date: String, kilometrage: Int, incidents: String, commentaires: String, chauffeurId: String, vehiculeId: Int): Rapport!
     deleteRapport(id: Int!): Boolean!
   
     sendNotification(message: String!): Notification!
-
+    
+    uploadFile(file: Upload!, folder: Folder!): String!
   }
 
   type Notification {

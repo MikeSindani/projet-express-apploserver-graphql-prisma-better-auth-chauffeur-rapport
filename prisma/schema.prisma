@@ -33,7 +33,10 @@ model User {
   role          Role      @default(GESTIONNAIRE)
   telephone     String?   @unique
   licenseNumber String?
+  licenseExpiryDate String?
+  licenseImage  String?
   vehicules     Vehicule[]
+  assignedVehicules Vehicule[] @relation("VehicleDriver")
   rapports      Rapport[]
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id])
@@ -97,8 +100,13 @@ model Vehicule {
   modele           String
   annee            Int
   statut           String
-  userId           String
-  user             User      @relation(fields: [userId], references: [id])
+  userId           String?   // Manager/Admin who added it? Or maybe this should be owner.
+  user             User?     @relation(fields: [userId], references: [id])
+  driverId         String?   // Assigned chauffeur
+  driver           User?     @relation("VehicleDriver", fields: [driverId], references: [id])
+  image            String?
+  
+  registrationCardImage String?
   organizationId   String
   organization     Organization @relation(fields: [organizationId], references: [id])
   rapports         Rapport[]

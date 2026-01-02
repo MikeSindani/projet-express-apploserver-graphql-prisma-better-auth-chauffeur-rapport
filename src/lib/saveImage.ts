@@ -14,7 +14,7 @@ export const saveImage = (base64Data: string): string => {
     const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
     if (!matches || matches.length !== 3) {
       // If it's already a URL (e.g. from update), return as is
-      if (base64Data.startsWith('/media/')) return base64Data;
+      if (base64Data.startsWith('/media/') || base64Data.startsWith('http')) return base64Data;
       
       console.warn("Invalid base64 string, saving as is");
       return base64Data;

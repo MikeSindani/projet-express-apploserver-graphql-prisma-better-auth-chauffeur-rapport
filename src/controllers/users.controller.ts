@@ -1,3 +1,4 @@
+import log from '@/lib/log';
 import { prisma } from "@/lib/prisma";
 
 type AuthArgs = {
@@ -10,7 +11,8 @@ const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key"; // ou ta clé pu
 
 export const UserController = {
   users: async () => {
-     console.log("🔵 Starting to get all users");
+     log('/controllers/users.controller.ts')
+     log("🔵 Starting to get all users");
     return await prisma.user.findMany({
       include: {
         organization: true,
@@ -20,7 +22,8 @@ export const UserController = {
   },
 
   user: async (id: string) => {
-    console.log("🔵 Starting to get user by id:", { id });
+    log('/controllers/users.controller.ts')
+    log("🔵 Starting to get user by id:", { id });
     return await prisma.user.findUnique({
       where: { id },
       include: {
@@ -39,7 +42,8 @@ export const UserController = {
       role?: "GESTIONNAIRE" | "CHAUFFEUR";
     }
   ) => {
-    console.log("🔵 Starting to update user by id:", { id });
+    log('/controllers/users.controller.ts')
+    log("🔵 Starting to update user by id:", { id });
     return await prisma.user.update({
       where: { id },
       data,
@@ -51,7 +55,8 @@ export const UserController = {
   },
 
   delete: async (id: string) => {
-    console.log("🔵 Starting to delete user by id:", { id });
+    log('/controllers/users.controller.ts')
+    log("🔵 Starting to delete user by id:", { id });
     return await prisma.user.delete({
       where: { id },
     });
@@ -70,7 +75,8 @@ export const UserController = {
       licenseNumber?: string;
     }
   ) => {
-    console.log("🔵 Starting to update user by id:", { id });
+    log('/controllers/users.controller.ts')
+    log("🔵 Starting to update user by id:", { id });
     return await prisma.user.update({
       where: { id },
       data,
