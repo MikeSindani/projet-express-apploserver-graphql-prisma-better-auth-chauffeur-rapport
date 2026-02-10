@@ -8,7 +8,7 @@ type AuthArgs = {
   role?: "GESTIONNAIRE" | "CHAUFFEUR";
 };
 
-const JWT_SECRET = process.env.JWT_SECRET || "TON_SECRET_JWT";
+// JWT_SECRET imported from @/config/auth
 
 export const OrganizationController = {
 

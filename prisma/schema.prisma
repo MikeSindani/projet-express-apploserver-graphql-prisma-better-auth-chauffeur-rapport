@@ -105,12 +105,19 @@ model Vehicule {
   driverId         String?   // Assigned chauffeur
   driver           User?     @relation("VehicleDriver", fields: [driverId], references: [id])
   image            String?
-  
+  images           VehiculeImage[]
   registrationCardImage String?
   organizationId   String
   organization     Organization @relation(fields: [organizationId], references: [id])
   rapports         Rapport[]
   createdAt        DateTime  @default(now())
+}
+
+model VehiculeImage {
+  id         Int      @id @default(autoincrement())
+  url        String
+  vehiculeId Int
+  vehicule   Vehicule @relation(fields: [vehiculeId], references: [id], onDelete: Cascade)
 }
 
 model Rapport {
@@ -119,12 +126,21 @@ model Rapport {
   kilometrage  Int
   incidents    String?
   commentaires String?
+  images       RapportImage[]
   vehiculeId   Int
   userId       String
   user         User      @relation(fields: [userId], references: [id])
   vehicule     Vehicule  @relation(fields: [vehiculeId], references: [id])
   organizationId String
+  type           String    @default("INCIDENT")
   organization   Organization @relation(fields: [organizationId], references: [id])
+}
+
+model RapportImage {
+  id        Int     @id @default(autoincrement())
+  url       String
+  rapportId Int
+  rapport   Rapport @relation(fields: [rapportId], references: [id], onDelete: Cascade)
 }
 
 enum Role {

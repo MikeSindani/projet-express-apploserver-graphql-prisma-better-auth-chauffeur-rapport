@@ -9,7 +9,7 @@ export const SearchController = {
    * @param organizationId - Optional organization filter
    * @returns Object containing arrays of matching chauffeurs, vehicules, and rapports
    */
-  searchAll: async (query: string, organizationId?: number) => {
+  searchAll: async (query: string, organizationId?: string, role?: string) => {
     if (!query || query.trim().length === 0) {
       return {
         chauffeurs: [],
@@ -22,18 +22,20 @@ export const SearchController = {
 
     // Build organization filter
     const orgFilter = organizationId ? { organizationId } : {};
-    log(orgFilter); // Added log statement for orgFilter
+    log(orgFilter);
 
     // Search Chauffeurs (Users with role CHAUFFEUR)
-    const chauffeurs = await prisma.user.findMany({
+    let chauffeurs : any[] = [];
+    if (role == 'GESTIONNAIRE') 
+    chauffeurs = await prisma.user.findMany({
       where: {
         role: "CHAUFFEUR",
         ...orgFilter,
         OR: [
-          { name: { contains: searchTerm, mode: "insensitive" } },
-          { email: { contains: searchTerm, mode: "insensitive" } },
-          { telephone: { contains: searchTerm, mode: "insensitive" } },
-          { licenseNumber: { contains: searchTerm, mode: "insensitive" } },
+          { name: { contains: searchTerm } },
+          { email: { contains: searchTerm } },
+          { telephone: { contains: searchTerm } },
+          { licenseNumber: { contains: searchTerm } },
         ],
       },
       include: {
@@ -45,11 +47,11 @@ export const SearchController = {
     // Search Vehicules
     const vehicules = await prisma.vehicule.findMany({
       where: {
-        ...(organizationId ? { user: { organizationId } } : {}),
+        ...(organizationId ? { organizationId } : {}),
         OR: [
-          { immatriculation: { contains: searchTerm, mode: "insensitive" } },
-          { marque: { contains: searchTerm, mode: "insensitive" } },
-          { modele: { contains: searchTerm, mode: "insensitive" } },
+          { immatriculation: { contains: searchTerm } },
+          { marque: { contains: searchTerm } },
+          { modele: { contains: searchTerm } },
         ],
       },
       include: {
@@ -60,12 +62,13 @@ export const SearchController = {
     });
 
     // Search Rapports
+
     const rapports = await prisma.rapport.findMany({
       where: {
-        ...(organizationId ? { user: { organizationId } } : {}),
+        ...(organizationId ? { organizationId } : {}),
         OR: [
-          { incidents: { contains: searchTerm, mode: "insensitive" } },
-          { commentaires: { contains: searchTerm, mode: "insensitive" } },
+          { incidents: { contains: searchTerm } },
+          { commentaires: { contains: searchTerm } },
         ],
       },
       include: {

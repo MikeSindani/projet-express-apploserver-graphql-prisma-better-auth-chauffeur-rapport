@@ -1,8 +1,9 @@
-import { auth } from "@/lib/auth";
+import { JWT_SECRET } from "@/config/auth";
+import log from '@/lib/log';
 import { prisma } from '@/lib/prisma';
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxIiwiaWF0IjoxNzYzMjEzNzM5LCJleHAiOjE3NjMyMTczMzl9.ZPoFx-hJNtG-nCgDKE6kDULFn2yQbrGytS0C1ACGiZk";
+
 
 /**
  * @brief Vérifie un jeton JWT et récupère l'utilisateur associé.
@@ -30,7 +31,12 @@ export const verifyToken = async (token: string) => {
     if (!user) return null;
     
     return payload ? user : null;
-  } catch (error) {
+  } catch (error: any) {
+    if (error.name === 'TokenExpiredError') {
+      log(`ℹ️ Session expired (JWT)`);
+    } else {
+      log(`❌ Token verification failed: ${error.message}`);
+    }
     // invalid token -> return null so context creation stays safe
     return null;
   }
@@ -42,4 +48,30 @@ export const generateToken = async (userId: string) => {
   const token = jwt.sign({ userId }, JWT_SECRET, { expiresIn: '7d' });
 
   return { token, user: await prisma.user.findUnique({ where: { id: userId } }) } as any;
+};
+
+
+
+export const checkAuth = (context: any) => {
+  log('Checking authentication...');
+  if (!context.user) {
+    throw new Error('Not authenticated');
+  }
+};
+
+export const checkGestionnaire = (context: any) : string => {
+  log('Checking authorization...');
+  if (!context.user || context.user.role !== 'GESTIONNAIRE') {
+     throw new Error('Not authorized ');
+  }
+  return context.user.role;
+
+};
+
+
+export const checkOrganization = (context: any) => {
+  log('Checking authorization...');
+  if (!context.user || !context.user.organizationId) {
+    throw new Error('Not authorized organization');
+  }
 };

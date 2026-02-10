@@ -1,4 +1,4 @@
-
+/*
 import { resolvers } from '@/graphql/resolvers';
 import { typeDefs } from '@/graphql/schema';
 import { verifyToken } from '@/utils/auth';
@@ -75,7 +75,7 @@ useServer(
       console.log(" 🔵 Starting to get user from token:")
       const token = ctx.connectionParams?.authorization?.split(' ')[1];
       console.log(" 🔵 Token",{token})
-      const user = token ? verifyToken(token) : null;
+      const user = token ? await verifyToken(token) : null;
       console.log(" 🔵 User found",{user})
       return { user };
     },
@@ -90,3 +90,6 @@ httpServer.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`🌐 Server accessible on network at http://192.168.1.217:${PORT}/graphql`);
   console.log(`📡 Subscriptions ready at ws://localhost:${PORT}/graphql`);
 });
+
+
+*/

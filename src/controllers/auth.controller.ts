@@ -1,7 +1,7 @@
+import { JWT_SECRET } from "@/config/auth";
 import { auth } from "@/lib/auth";
 import log from "@/lib/log";
 import { prisma } from "@/lib/prisma";
-
 import { saveImage } from "@/lib/saveImage";
 import { generateToken } from "@/utils/auth";
 import bcrypt from "bcryptjs";
@@ -14,7 +14,7 @@ type AuthArgs = {
   role?: "GESTIONNAIRE" | "CHAUFFEUR";
 };
 
-const JWT_SECRET = process.env.JWT_SECRET || "TON_SECRET_JWT";
+
 
 export const AuthController = {
   getSession: async (token: string) => {
@@ -126,59 +126,64 @@ export const AuthController = {
       );
     }
   },
-   loginWithPhone: async (_: unknown, { telephone, password }: { telephone: string; password: string }) => {
-    log("/controllers/auth.controller.ts");
-    log("🔵 loginWithPhone function");
-    log("🔵 Starting phone login for:", telephone);
-    try {
-      // Find user by phone number
-      log("🔍 Looking up user by phone...");
-      const user = await prisma.user.findUnique({ where: { telephone } });
-      
-      if (!user) {
-        log("❌ Phone number not found");
-        throw new Error("Invalid phone number or password");
-      }
-      log("✅ User found:", user.name);
+   loginWithPhone: async (
+  _: unknown,
+  { telephone, password }: { telephone: string; password: string }
+) => {
+  log("/controllers/auth.controller.ts");
+  log("🔵 loginWithPhone function");
+  log(`🔵 Starting phone login for: ${telephone}`);
+  try {
+    // Rechercher l'utilisateur par numéro de téléphone
+    log("🔍 Looking up user by phone...");
+    const user = await prisma.user.findUnique({ where: { telephone } });
 
-      // Get the generated email for better-auth
-      const generatedEmail = `${telephone.replace(/[^0-9]/g, '')}@phone.local`;
-      
-      log("🔵 Authenticating with better-auth...");
-      try {
-        const session = await auth.api.signInEmail({ 
-          body: { 
-            email: generatedEmail, 
-            password 
-          } 
-        });
-        
-        if (!session) {
-          throw new Error("Invalid credentials");
-        }
-        log("✅ Authentication successful");
-      } catch (authError: any) {
-        log("❌ Authentication error:", authError.message);
-        throw new Error("Invalid phone number or password");
-      }
-
-      // Generate token
-      log("🔵 Generating token...");
-      const tokenData = await generateToken(user.id);
-      log("✅ Token generated successfully");
-
-      log("🎉 Phone login completed successfully!");
-      return {
-        token: tokenData.token,
-        user,
-      };
-    } catch (error: any) {
-      log("❌ Phone login error:", error);
-      throw new Error(
-        `Phone authentication failed: ${error?.message ?? String(error)}`
-      );
+    if (!user) {
+      log("❌ Phone number not found");
+      throw new Error("Invalid phone number or password");
     }
-  },
+    log(`✅ User found: ${user.name}`);
+
+    // Utiliser l'email réel de l'utilisateur pour l'authentification
+    const userEmail = user.email;
+    log(`📧 Using user email: ${userEmail} for authentication`);
+
+    log("🔵 Authenticating with better-auth...");
+    try {
+      const session = await auth.api.signInEmail({
+        body: {
+          email: userEmail,
+          password,
+        },
+      });
+
+      if (!session) {
+        throw new Error("Invalid credentials");
+      }
+      log("✅ Authentication successful");
+    } catch (authError: any) {
+      log(`❌ Authentication error: ${authError.message}`);
+      throw new Error("Invalid phone number or password");
+    }
+
+    // Générer le token
+    log("🔵 Generating token...");
+    const tokenData = await generateToken(user.id);
+    log("✅ Token generated successfully");
+
+    log("🎉 Phone login completed successfully!");
+    return {
+      token: tokenData.token,
+      user,
+    };
+  } catch (error: any) {
+    log(`❌ Phone login error: ${error}`);
+    throw new Error(
+      `Phone authentication failed: ${error?.message ?? String(error)}`
+    );
+  }
+   },
+
   generateToken: async (userId: string) => {
     try {
       log("🔵 Starting to generate token:", { userId });
@@ -187,9 +192,11 @@ export const AuthController = {
       if (!user) throw new Error('User not found');
 
       const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
+      log(`✅ AuthController token generated with secret: ${JWT_SECRET.substring(0, 5)}...`);
 
       return { token, user } as any;
     } catch (error: any) {
+      log(`❌ AuthController generateToken failed: ${error.message}`);
       throw new Error(`Generate token failed: ${error?.message ?? String(error)}`);
     }
   },
@@ -211,23 +218,26 @@ export const AuthController = {
         }
       }
 
-      // Try better-auth signOut
+      // Try better-auth signOut (best effort)
       try {
         await auth.api.signOut({
           headers: headers
         } as any);
         log("✅ Better-auth signOut successful");
       } catch (authError: any) {
-        log("⚠️ Better-auth signOut failed:", authError?.message);
+        // If it's just "Failed to get session", it's normal for mobile/JWT apps
+        if (authError?.message === "Failed to get session") {
+          log("ℹ️ Better-auth: No active web session found to clear (normal for mobile)");
+        } else {
+          log("⚠️ Better-auth signOut warning:", authError?.message);
+        }
       }
 
       log("✅ Logout successfully");
-      return { success: true };
+      return true;
     } catch (error: any) {
-      // Since we use custom JWTs, better-auth session might not be present or retrievable.
-      // We log the error but return success to allow the client to proceed with local cleanup.
-      log("⚠️ Better-auth logout failed (likely no session), proceeding anyway:", error?.body?.code || error.message);
-      return { success: true };
+      log("⚠️ Logout process encountered a non-critical error:", error?.message);
+      return true;
     }
   },
   forgotPassword: async (email: string) => {
@@ -318,9 +328,6 @@ export const AuthController = {
       throw new Error(`Update profile failed: ${error?.message ?? String(error)}`);
     }
   },
-
-
-
   // Phone-based authentication
   registerWithPhone: async (_: unknown, { name, telephone, password, role }: { name: string; telephone: string; password: string; role?: "GESTIONNAIRE" | "CHAUFFEUR" }) => {
     log("/controllers/auth.controller.ts");
@@ -379,6 +386,4 @@ export const AuthController = {
       );
     }
   },
-
- 
 };

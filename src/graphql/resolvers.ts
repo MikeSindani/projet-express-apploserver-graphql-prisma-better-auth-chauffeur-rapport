@@ -7,49 +7,34 @@ import { SearchController } from '@/controllers/search.controller';
 import { UploadController } from '@/controllers/upload.controller';
 import { UserController } from '@/controllers/users.controller';
 import { VehiculeController } from '@/controllers/vehicules.controller';
-import log from '@/lib/log';
+import { prisma } from '@/lib/prisma';
+import { NotificationService } from '@/services/notification.service';
+import { checkAuth, checkGestionnaire, checkOrganization } from '@/utils/auth';
+
+
 const NOTIF_EVENT = 'NOTIFICATION_RECEIVED';
 
 
-async function sendNotification(message: string, organizationId: string, pubsub: any) {
+async function sendNotification(message: string, organizationId: string, pubsub: any, options?: { email?: string, sms?: string }) {
   // Persist for all managers in the organization
-  await NotificationController.createForOrganization(organizationId, message);
+  const notif = await NotificationController.createForOrganization(organizationId, message);
 
-  const notif = {
-    id: Date.now().toString(),
-    message,
-    timestamp: new Date().toISOString(),
-    read: false
-  };
-  
   if (pubsub) {
     pubsub.publish(NOTIF_EVENT, { notificationReceived: notif });
+    pubsub.publish('STATS_UPDATED', { statsUpdated: true });
+  }
+
+  // Example: Send external notifications if options provided
+  if (options?.email) {
+    await NotificationService.sendEmail(options.email, 'Nouvelle Notification FleetManager', `<p>${message}</p>`);
+  }
+  if (options?.sms) {
+    await NotificationService.sendSMS(options.sms, message);
   }
   
   return notif;
 }
 
-const checkAuth = (context: any) => {
-  log('Checking authentication...');
-  if (!context.user) {
-    throw new Error('Not authenticated');
-  }
-};
-
-const checkGestionnaire = (context: any) => {
-  log('Checking authorization...');
-  if (!context.user || context.user.role !== 'GESTIONNAIRE') {
-    throw new Error('Not authorized ');
-  }
-};
-
-
-const checkOrganization = (context: any) => {
-  log('Checking authorization...');
-  if (!context.user || !context.user.organizationId) {
-    throw new Error('Not authorized organization');
-  }
-};
 
 export const resolvers = {
   Query: {
@@ -63,69 +48,71 @@ export const resolvers = {
     },
 
     rapports: (_: any, __: any, context: any) => {
-      checkAuth(context);
-      return RapportController.getAll();
+      checkOrganization(context);
+      
+      const isChauffeur = context.user.role === 'CHAUFFEUR';
+      // If chauffeur, only show their own reports. If manager, show all in org.
+      return RapportController.getAll(
+        context.user.organizationId, 
+        isChauffeur ? context.user.id : undefined
+      );
     },
     rapport: (_: any, args: any, context: any) => {
-      checkAuth(context);
-      return RapportController.getOne(args.id);
+      checkOrganization(context);
+      return RapportController.getOne(args.id, context.user.organizationId);
     },
 
     chauffeurs: (_: any, __: any, context: any) => {
+      checkOrganization(context);
       checkGestionnaire(context);
-      return ChauffeurController.getAll();
+      return ChauffeurController.getAll(context.user.organizationId);
     },
     chauffeur: (_: any, args: any, context: any) => {
+      checkOrganization(context);
       checkGestionnaire(context);
-      return ChauffeurController.getOne(args.id);
+      return ChauffeurController.getOne(args.id, context.user.organizationId);
     },
 
     vehicules: (_: any, __: any, context: any) => {
-      checkAuth(context);
-      return VehiculeController.getAll();
+      checkOrganization(context);
+      return VehiculeController.getAll(context.user.organizationId);
     },
     vehicule: (_: any, args: any, context: any) => {
-      checkAuth(context);
-      return VehiculeController.getOne(args.id);
+      checkOrganization(context);
+      return VehiculeController.getOne(args.id, context.user.organizationId);
     },
 
     countChauffeur: (_: any, args: any, context: any) => {
-      checkAuth(context);
-      const organizationId = args.organizationId || context.user?.organizationId;
-      return ChauffeurController.count(organizationId);
+      checkOrganization(context);
+      return ChauffeurController.count(context.user.organizationId);
     },
     countVehicule: (_: any, args: any, context: any) => {
-      checkAuth(context);
-      const organizationId = args.organizationId || context.user?.organizationId;
-      return VehiculeController.count(organizationId);
+      checkOrganization(context);
+      return VehiculeController.count(context.user.organizationId);
     },
     countActiveVehicule: (_: any, args: any, context: any) => {
-      checkAuth(context);
-      const organizationId = args.organizationId || context.user?.organizationId;
-      return VehiculeController.count(organizationId, 'Disponible');
+      checkOrganization(context);
+      return VehiculeController.count(context.user.organizationId, 'Disponible');
     },
     countIndisponibleVehicule: (_: any, args: any, context: any) => {
-      checkAuth(context);
-      const organizationId = args.organizationId || context.user?.organizationId;
-      return VehiculeController.countIndisponible(Number(organizationId));
+      checkOrganization(context);
+      return VehiculeController.countIndisponible(context.user.organizationId);
     },
     countRapport: (_: any, args: any, context: any) => {
-      checkAuth(context);
-      const organizationId = args.organizationId || context.user?.organizationId;
-      return RapportController.count(organizationId);
+      checkOrganization(context);
+      return RapportController.count(context.user.organizationId);
     },
     getOrganizationUser: (_: any, args: any, context: any) => {
       checkAuth(context);
       return OrganizationController.getOrganizationUser(args.userId);
     },
     organizationMembers: (_: any, args: any, context: any) => {
-      checkAuth(context);
-      return OrganizationController.getOrganizationMembers(args.organizationId);
+      checkOrganization(context);
+      return OrganizationController.getOrganizationMembers(context.user.organizationId);
     },
     search: (_: any, args: any, context: any) => {
-      checkAuth(context);
-      const organizationId = args.organizationId || context.user?.organizationId;
-      return SearchController.searchAll(args.query, organizationId);
+      checkAuth(context)
+        return SearchController.searchAll(args.query, context.user.organizationId,checkGestionnaire(context));
     },
     notifications: (_: any, __: any, context: any) => {
       checkAuth(context);
@@ -159,6 +146,7 @@ export const resolvers = {
 
 
     createVehicule: async (_: any, args: any, context: any) => {
+      checkOrganization(context);
       checkGestionnaire(context);
       const vehicule = await VehiculeController.create(args);
       
@@ -169,22 +157,40 @@ export const resolvers = {
           context.user.organizationId,
           context.pubsub
         );
+        context.pubsub.publish('VEHICULE_CREATED', { vehiculeCreated: vehicule });
       }
       
       return vehicule;
     },
     updateVehicule: (_: any, args: any, context: any) => {
+      checkOrganization(context);
       checkGestionnaire(context);
       return VehiculeController.update(args, args.id);
     },
     deleteVehicule: (_: any, args: any, context: any) => {
+      checkOrganization(context);
       checkGestionnaire(context);
       return VehiculeController.delete(args.id);
     },
-    changeStatut: (_: any, args: any, context: any) => {
-      checkAuth(context);
-      checkGestionnaire(context);
-      return VehiculeController.changeStatut(args.id, args.statut);
+    changeStatut: async (_: any, args: any, context: any) => {
+      checkOrganization(context);
+      // Allow if manager OR if chauffeur is the assigned driver
+      const vehicule = await VehiculeController.getOne(args.id, context.user.organizationId);
+      const isManager = context.user.role === 'GESTIONNAIRE';
+      const isAssignedDriver = context.user.role === 'CHAUFFEUR' && vehicule.driverId === context.user.id;
+
+      if (!isManager && !isAssignedDriver) {
+        throw new Error('Non autorisé à modifier le statut de ce véhicule');
+      }
+
+      const updated = await VehiculeController.changeStatut(args.id, args.statut);
+      
+      if (context.pubsub) {
+        context.pubsub.publish('VEHICULE_UPDATED', { vehiculeUpdated: updated });
+        context.pubsub.publish('STATS_UPDATED', { statsUpdated: true });
+      }
+
+      return updated;
     },
 
 
@@ -195,10 +201,11 @@ export const resolvers = {
 
     addUserToOrganization: (_: any, args: any, context: any) => {
       checkAuth(context);
-      return OrganizationController.addUserToOrganization(args.email, args.organizationId, args.telephone);
+      return OrganizationController.addUserToOrganization(args.organizationId, args.email, args.telephone);
     },
 
     manageOrganizationAccess: (_: any, args: any, context: any) => {
+      checkOrganization(context);
       checkGestionnaire(context);
       return OrganizationController.manageOrganizationAccess(args.userId, args.access, context.user?.organizationId);
     },
@@ -206,23 +213,24 @@ export const resolvers = {
 
 
     createRapport: async (_: any, args: any, context: any) => {
-      checkAuth(context);
+      checkOrganization(context);
       const rapport = await RapportController.create(args);
 
       // Trigger notification for new report
       if (rapport.organizationId) {
         await sendNotification(`Nouveau rapport créé - ${rapport.id}`, rapport.organizationId, context.pubsub);
+        context.pubsub.publish('RAPPORT_CREATED', { rapportCreated: rapport });
       }
 
       return rapport;
     },
     updateRapport: (_: any, args: any, context: any) => {
-      checkAuth(context);
+      checkOrganization(context);
 
       return RapportController.update(args, args.id);
     },
     deleteRapport: (_: any, args: any, context: any) => {
-      checkAuth(context);
+      checkOrganization(context);
       return RapportController.delete(args.id);
     },
 
@@ -230,6 +238,7 @@ export const resolvers = {
     createChauffeur: async (_: any, args: any, context: any) => {
       log("🔵 createChauffeur resolver called");
       log("🔵 Args:", JSON.stringify(args, null, 2));
+      checkOrganization(context);
       checkGestionnaire(context);
 
       // Get the organization ID from the authenticated user
@@ -253,23 +262,21 @@ export const resolvers = {
       return updatedChauffeur;
     },
     updateChauffeur: (_: any, args: any, context: any) => {
-      checkAuth(context);
+      checkOrganization(context);
       checkGestionnaire(context);
       return ChauffeurController.update(args.id, args);
     },
     deleteChauffeur: (_: any, args: any, context: any) => {
-      checkAuth(context);
+      checkOrganization(context);
       checkGestionnaire(context);
       return ChauffeurController.delete(args.id);
     },
     bloqueAccess: (_: any, args: any, context: any) => {
-      checkAuth(context);
+      checkOrganization(context);
       checkGestionnaire(context);
       return ChauffeurController.bloqueAccess(args.id);
     },
-    
-
-
+  
 
 
     markAllNotificationsAsRead: async (_: any, args: any, context: any) => {
@@ -288,11 +295,47 @@ export const resolvers = {
       //checkAuth(context);
       return UploadController.uploadFile(args.file, args.folder, context.user?.organizationId || 'default');
     },
+
+    sendNotification: (_: any, args: any, context: any) => {
+      checkOrganization(context);
+      return sendNotification(args.message, context.user.organizationId, context.pubsub);
+    },
   },
   Subscription: {
     notificationReceived: {
       subscribe: (_: any, __: any, context: any) => context.pubsub.subscribe(NOTIF_EVENT),
       resolve: (payload: any) => payload.notificationReceived,
     },
+    rapportCreated: {
+      subscribe: (_: any, __: any, context: any) => context.pubsub.subscribe('RAPPORT_CREATED'),
+      resolve: (payload: any) => payload.rapportCreated,
+    },
+    vehiculeUpdated: {
+      subscribe: (_: any, __: any, context: any) => context.pubsub.subscribe('VEHICULE_UPDATED'),
+      resolve: (payload: any) => payload.vehiculeUpdated,
+    },
+    vehiculeCreated: {
+      subscribe: (_: any, __: any, context: any) => context.pubsub.subscribe('VEHICULE_CREATED'),
+      resolve: (payload: any) => payload.vehiculeCreated,
+    },
+    statsUpdated: {
+      subscribe: (_: any, __: any, context: any) => context.pubsub.subscribe('STATS_UPDATED'),
+      resolve: (payload: any) => payload.statsUpdated,
+    },
   },
+  Vehicule: {
+    images: (parent: any) => {
+      return prisma.vehiculeImage.findMany({
+        where: { vehiculeId: parent.id }
+      });
+    }
+  },
+  Rapport: {
+    chauffeurId: (parent: any) => parent.userId,
+    images: (parent: any) => {
+      return prisma.rapportImage.findMany({
+        where: { rapportId: parent.id }
+      });
+    }
+  }
 };

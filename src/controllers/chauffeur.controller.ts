@@ -26,26 +26,30 @@ export const ChauffeurController = {
     return 0
   },
   // Liste de tous les users de rôle CHAUFFEUR
-  getAll: async () => {
+  getAll: async (organizationId?: string) => {
     log("/controllers/chauffeur.controller.ts");
-    log("🔵 GET ALL CHAUFFEUR FUNCTION");
-    log("🔵 Starting to get all chauffeurs");
+    log("🔵 GET ALL CHAUFFEUR FUNCTION", { organizationId });
     return await prisma.user.findMany({
-      where: { role: "CHAUFFEUR" },
+      where: {
+        role: "CHAUFFEUR",
+        ...(organizationId ? { organizationId } : {}),
+      },
       include: {
-        // ... ajuste selon ton schéma: relations éventuelles liées au user
         vehicules: true,
       },
     });
   },
 
   // Un seul chauffeur (user) par id — garantit role = CHAUFFEUR
-  getOne: async (id: string) => {
+  getOne: async (id: string, organizationId?: string) => {
     log("/controllers/chauffeur.controller.ts");
-    log("🔵 GET ONE CHAUFFEUR FUNCTION");
-    log("🔵 Starting to get one chauffeur", { id });
+    log("🔵 GET ONE CHAUFFEUR FUNCTION", { id, organizationId });
     return await prisma.user.findFirst({
-      where: { id, role: "CHAUFFEUR" },
+      where: {
+        id,
+        role: "CHAUFFEUR",
+        ...(organizationId ? { organizationId } : {}),
+      },
       include: {
         vehicules: true,
       },

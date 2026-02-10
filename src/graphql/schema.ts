@@ -15,7 +15,13 @@ export const typeDefs = `#graphql
     driver: User
     image: String
     registrationCardImage: String
+    images: [VehiculeImage]
     rapports: [Rapport]
+  }
+
+  type VehiculeImage {
+    id: Int
+    url: String
   }
 
   type Organization {
@@ -88,8 +94,17 @@ export const typeDefs = `#graphql
     vehicule: Vehicule
     chauffeur: Chauffeur
     organizationId: String
+    vehiculeId: Int
+    chauffeurId: String
+    images: [RapportImage]
+    type: String
     organization: Organization
     createdAt: String
+  }
+
+  type RapportImage {
+    id: Int
+    url: String
   }
 
   type SearchResult {
@@ -98,7 +113,7 @@ export const typeDefs = `#graphql
     rapports: [Rapport!]!
   }
 
-  
+
 
   type Query {
     chauffeurs: [Chauffeur!]!
@@ -162,7 +177,7 @@ export const typeDefs = `#graphql
     deleteChauffeur(id: String!): Boolean!
     bloqueAccess(id: String!): Boolean!
 
-    createRapport(date: String, kilometrage: Int!, incidents: String, commentaires: String, chauffeurId: String!, vehiculeId: Int!): Rapport!
+    createRapport(date: String, kilometrage: Int!, incidents: String, commentaires: String, type: String, chauffeurId: String!, vehiculeId: Int!): Rapport!
     updateRapport(id: Int!, date: String, kilometrage: Int, incidents: String, commentaires: String, chauffeurId: String, vehiculeId: Int): Rapport!
     deleteRapport(id: Int!): Boolean!
   
@@ -175,9 +190,14 @@ export const typeDefs = `#graphql
     id: ID!
     message: String!
     read: Boolean!
+    createdAt: String
   }
 
   type Subscription {
     notificationReceived: Notification
+    rapportCreated: Rapport
+    vehiculeUpdated: Vehicule
+    vehiculeCreated: Vehicule
+    statsUpdated: Boolean
   }
 `;

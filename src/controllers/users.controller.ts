@@ -7,7 +7,7 @@ type AuthArgs = {
   role?: "GESTIONNAIRE" | "CHAUFFEUR";
 };
 
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key"; // ou ta clé publique si RS256
+// JWT_SECRET imported from @/config/auth
 
 export const UserController = {
   users: async () => {

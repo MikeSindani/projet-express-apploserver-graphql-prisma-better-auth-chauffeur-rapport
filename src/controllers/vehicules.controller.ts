@@ -2,7 +2,7 @@ import log from '@/lib/log';
 import { prisma } from '@/lib/prisma';
 
 export const VehiculeController = {
-  count : async (organizationId?: number, statut?: string) => {  
+  count : async (organizationId?: string, statut?: string) => {  
     log('/controllers/vehicules.controller.ts')
     log("🔵 count function", { organizationId, statut }); 
     const where: any = {};
@@ -11,7 +11,7 @@ export const VehiculeController = {
     
     return await prisma.vehicule.count({ where });
   },
-  countIndisponible : async (organizationId?: number) => {  
+  countIndisponible : async (organizationId?: string) => {  
     log('/controllers/vehicules.controller.ts')
     log("🔵 countIndisponible function", { organizationId }); 
     const where: any = {};
@@ -20,10 +20,11 @@ export const VehiculeController = {
     
     return await prisma.vehicule.count({ where });
   },
-  getAll: async () => {
+  getAll: async (organizationId?: string) => {
     log('/controllers/vehicules.controller.ts')
-    log("🔵 getAll function")
+    log("🔵 getAll function", { organizationId })
     return await prisma.vehicule.findMany({
+      where: organizationId ? { organizationId } : {},
       include: {
         rapports: true,
         user: true,
@@ -32,11 +33,14 @@ export const VehiculeController = {
     });
   },
 
-  getOne: async (id: number) => {
+  getOne: async (id: number, organizationId?: string) => {
     log('/controllers/vehicules.controller.ts')
-    log("🔵 getOne function", { id });
-    return await prisma.vehicule.findUnique({
-      where: { id },
+    log("🔵 getOne function", { id, organizationId });
+    return await prisma.vehicule.findFirst({
+      where: {
+        id,
+        ...(organizationId ? { organizationId } : {}),
+      },
       include: {
         rapports: true,
         user: true,
@@ -83,9 +87,9 @@ export const VehiculeController = {
         annee,
         statut: statut ?? 'Disponible',
         userId,
-        driverId,
-        image: image ? saveImage(image) : undefined,
-        registrationCardImage: registrationCardImage ? saveImage(registrationCardImage) : undefined,
+        driverId: driverId ?? null,
+        image: image ? saveImage(image) : null,
+        registrationCardImage: registrationCardImage ? saveImage(registrationCardImage) : null,
         organizationId: user.organizationId,
       },
       include: {
