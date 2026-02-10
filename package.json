@@ -39,8 +39,10 @@
     "import": "^0.0.6",
     "jsonwebtoken": "^9.0.2",
     "jwt": "^0.2.0",
+    "nodemailer": "^8.0.1",
     "path": "^0.12.7",
     "prisma": "^6.16.3",
+    "twilio": "^5.12.1",
     "ws": "^8.19.0"
   },
   "devDependencies": {
