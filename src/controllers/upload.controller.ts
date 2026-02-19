@@ -12,7 +12,7 @@ export const UploadController = {
         const path = require('path');
         const fs = require('fs');
 
-        const uploadDir = path.join(process.cwd(), 'media', 'image', folder, organizationId);
+        const uploadDir = path.join(process.cwd(), 'media', folder, organizationId);
         if (!fs.existsSync(uploadDir)) {
             fs.mkdirSync(uploadDir, { recursive: true });
         }
@@ -21,6 +21,6 @@ export const UploadController = {
         fs.writeFileSync(filePath, buffer);
 
         log(`✅ File saved to: ${filePath}`);
-        return `/media/image/${folder}/${organizationId}/${uniqueFilename}`;
+        return `/media/${folder}/${organizationId}/${uniqueFilename}`;
     }
 }

@@ -288,14 +288,14 @@ export const AuthController = {
       );
     }
   },
-  changePassword: async ({userId, password}: {userId: string, password: string}) => {
+  changePassword: async ({userId, args}: {userId: string, args: any}) => {
     log("/controllers/auth.controller.ts");
     log("🔵 changePassword function");
     try {
       log("🔵 Starting to change password:", { userId });
       
       // Hash the new password properly
-      const hashedPassword = await bcrypt.hash(password, 10);
+      const hashedPassword = await bcrypt.hash(args.newPassword, 10);
       
       const user = await prisma.user.update({
         where: { id: userId },
@@ -314,10 +314,11 @@ export const AuthController = {
       log("🔵 Starting to update profile:", { userId, data });
       
       const dataToUpdate = { ...data };
-      if (data.image) {
-        dataToUpdate.image = saveImage(data.image);
-      }
 
+      if (dataToUpdate.telephone && dataToUpdate.email.includes("phone.local")) {
+        dataToUpdate.email = dataToUpdate.telephone + "@phone.local";
+      }
+     
       const user = await prisma.user.update({
         where: { id: userId },
         data: dataToUpdate,

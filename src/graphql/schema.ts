@@ -164,7 +164,7 @@ export const typeDefs = `#graphql
     changeStatut(id: Int!, statut: String!): Vehicule!
     
 
-    createUser(name: String!, email: String!, password: String!, role: Role!, telephone: String, licenseNumber: String): User!
+    createUser(name: String!, email: String, password: String!, role: Role!, telephone: String, licenseNumber: String): User!
     updateUser(id: String!, name: String!, email: String!, password: String!, role: Role!): User!
     deleteUser(id: String!): Boolean!
     

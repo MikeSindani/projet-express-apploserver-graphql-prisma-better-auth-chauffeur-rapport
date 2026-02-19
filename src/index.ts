@@ -35,10 +35,16 @@ const app = new Elysia()
     origin: '*',       // autorise toutes les origines
     credentials: true, // autorise les cookies/headers d’auth
   }))
-  // Static files (équivalent de express.static)
+  // Static files with legacy path support
+  // Normalizes old paths: /media/image/vehicle/ → /media/vehicule/
   .get('/media/*', ({ request }: any) => {
     const url = request.url || ''
-    const filePath = path.join(__dirname, '../media', url.split('/media/')[1] || '')
+    let relativePath = url.split('/media/')[1] || ''
+    // Normalize legacy 'image/' prefix (e.g., media/image/vehicule/ → media/vehicule/)
+    relativePath = relativePath.replace(/^image\//, '')
+    // Normalize English 'vehicle' to French 'vehicule'
+    relativePath = relativePath.replace(/^vehicle\//, 'vehicule/')
+    const filePath = path.join(__dirname, '../media', relativePath)
     return Bun.file(filePath)
   })
   // Middleware de logging pour toutes les requêtes

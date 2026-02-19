@@ -177,7 +177,7 @@ export const resolvers = {
       // Allow if manager OR if chauffeur is the assigned driver
       const vehicule = await VehiculeController.getOne(args.id, context.user.organizationId);
       const isManager = context.user.role === 'GESTIONNAIRE';
-      const isAssignedDriver = context.user.role === 'CHAUFFEUR' && vehicule.driverId === context.user.id;
+      const isAssignedDriver = context.user.role === 'CHAUFFEUR' && vehicule?.driverId === context.user.id;
 
       if (!isManager && !isAssignedDriver) {
         throw new Error('Non autorisé à modifier le statut de ce véhicule');
@@ -236,8 +236,7 @@ export const resolvers = {
 
 
     createChauffeur: async (_: any, args: any, context: any) => {
-      log("🔵 createChauffeur resolver called");
-      log("🔵 Args:", JSON.stringify(args, null, 2));
+     
       checkOrganization(context);
       checkGestionnaire(context);
 

@@ -7,7 +7,7 @@ const __dirname = path.dirname(__filename);
 
 const MEDIA_ROOT = path.join(__dirname, '../../media');
 
-export const saveFile = async (file: File, folder: string = 'image/vehicule'): Promise<string> => {
+export const saveFile = async (file: File, folder: string = 'vehicule'): Promise<string> => {
   try {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
@@ -30,7 +30,7 @@ export const saveFile = async (file: File, folder: string = 'image/vehicule'): P
   }
 };
 
-export const saveImage = (base64Data: string, folder: string = 'image/profil'): string => {
+export const saveImage = (base64Data: string, folder: string = 'profil'): string => {
   try {
     const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
     if (!matches || matches.length !== 3) {
